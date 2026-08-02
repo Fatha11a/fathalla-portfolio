@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fathalla — Visual Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #05060a;
+    --surface: #0e1116;
+    --surface-2: #161b23;
+    --line: #262c36;
+    --gold: #ff9d52;
+    --blue: #1f6f6b;
+    --blue-glow: #4fd1c5;
+    --text: #f4f1ea;
+    --muted: #857f76;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    line-height:1.7;
+    overflow-x:hidden;
+  }
+  ::selection{ background:var(--gold); color:#0a0a0b; }
+  a{ color:inherit; text-decoration:none; }
+  :focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
+  img, svg{ display:block; max-width:100%; }
+  button{ font:inherit; cursor:pointer; background:none; border:none; color:inherit; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 32px; }
+
+  .grain{
+    position:fixed; inset:0; pointer-events:none; z-index:200; opacity:.045;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ============ SCROLL REVEAL ============ */
+  .reveal{ opacity:0; transform:translateY(28px); transition:opacity .8s ease, transform .8s ease; }
+  .reveal.show{ opacity:1; transform:translateY(0); }
+  .reveal-stagger.show > *{ opacity:1; transform:translateY(0); }
+  .reveal-stagger > *{ opacity:0; transform:translateY(20px); transition:opacity .55s ease, transform .55s ease; }
+  .reveal-stagger.show > *:nth-child(1){ transition-delay:.03s; }
+  .reveal-stagger.show > *:nth-child(2){ transition-delay:.09s; }
+  .reveal-stagger.show > *:nth-child(3){ transition-delay:.15s; }
+  .reveal-stagger.show > *:nth-child(4){ transition-delay:.21s; }
+  .reveal-stagger.show > *:nth-child(5){ transition-delay:.27s; }
+  .reveal-stagger.show > *:nth-child(6){ transition-delay:.33s; }
+  .reveal-stagger.show > *:nth-child(n+7){ transition-delay:.36s; }
+
+  .hero-in{ opacity:0; filter:blur(16px); transform:translateY(34px) scale(.96); animation:heroIn 1.1s cubic-bezier(.16,1,.3,1) forwards; }
+  @keyframes heroIn{ to{ opacity:1; filter:blur(0); transform:translateY(0) scale(1); } }
+
+  .orb{ position:absolute; border-radius:50%; filter:blur(70px); pointer-events:none; opacity:.55; z-index:0; will-change:transform; }
+  .orb-blue{ width:420px; height:420px; background:radial-gradient(circle, var(--blue-glow), transparent 70%); top:-80px; left:-60px; animation:floatA 14s ease-in-out infinite; }
+  .orb-gold{ width:340px; height:340px; background:radial-gradient(circle, var(--gold), transparent 70%); bottom:-60px; right:-40px; opacity:.35; animation:floatB 17s ease-in-out infinite; }
+  @keyframes floatA{ 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(40px,50px); } }
+  @keyframes floatB{ 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(-30px,-40px); } }
+  .hero > .wrap, .hero .scroll-cue{ position:relative; z-index:2; }
+
+  .spotlight{
+    position:absolute; inset:0;
+    background:radial-gradient(600px circle at var(--x,50%) var(--y,30%), rgba(91,155,255,.10), transparent 60%);
+    pointer-events:none; z-index:1;
+  }
+
+  .timecode .dot{ box-shadow:0 0 10px var(--gold), 0 0 18px rgba(91,155,255,.5); }
+
+  .btn-primary{ position:relative; overflow:hidden; }
+  .btn-primary::after{
+    content:''; position:absolute; top:0; bottom:0; width:60%;
+    background:linear-gradient(120deg, transparent, rgba(255,255,255,.35), transparent);
+    left:-70%; animation:sweep 3.2s ease-in-out infinite;
+  }
+  @keyframes sweep{ 0%{ left:-70%; } 45%{ left:110%; } 100%{ left:110%; } }
+
+  .play-btn{ position:relative; }
+  .play-btn::before{
+    content:''; position:absolute; inset:-1px; border-radius:50%;
+    border:1px solid var(--blue-glow); opacity:0; animation:pulseRing 2.6s ease-out infinite;
+  }
+  @keyframes pulseRing{ 0%{ transform:scale(1); opacity:.7; } 100%{ transform:scale(1.6); opacity:0; } }
+
+  .chip{ transition:transform .25s ease, border-color .25s ease, background .25s ease; }
+  .chip:hover{ transform:translateY(-3px); border-color:var(--blue-glow); background:var(--surface); }
+
+  .meter i{ transform:scaleX(0); transform-origin:left; transition:transform 1.2s cubic-bezier(.2,.8,.2,1); }
+  .meter.show i{ transform:scaleX(1); }
+
+  /* ============ NAV ============ */
+  header{
+    position:fixed; top:0; right:0; left:0; z-index:100; padding:22px 0;
+    transition: background .35s ease, padding .35s ease, border-color .35s ease;
+    border-bottom:1px solid transparent;
+  }
+  header.solid{ background:rgba(10,10,11,.86); backdrop-filter: blur(10px); padding:14px 0; border-bottom-color:var(--line); }
+  header .wrap{ display:flex; align-items:center; justify-content:space-between; }
+  .logo{ font-family:var(--font-display); font-size:26px; letter-spacing:1px; }
+  .logo span{ color:var(--gold); }
+  nav ul{ display:flex; gap:36px; list-style:none; font-size:14px; font-weight:500; color:var(--muted); }
+  nav a{ position:relative; padding-bottom:4px; transition:color .25s; }
+  nav a:hover{ color:var(--text); }
+  nav a::after{ content:''; position:absolute; left:0; bottom:0; height:1px; width:0; background:var(--gold); transition:width .3s ease; }
+  nav a:hover::after{ width:100%; }
+  @media (max-width:720px){ nav ul{ display:none; } }
+
+  /* ============ HERO ============ */
+  .hero{ min-height:100svh; display:flex; flex-direction:column; justify-content:center; position:relative; padding-top:120px; padding-bottom:60px; border-bottom:1px solid var(--line); }
+  .hero::before, .hero::after{
+    content:''; position:absolute; right:0; left:0; height:14px;
+    background-image: repeating-linear-gradient(90deg, var(--surface-2) 0 10px, transparent 10px 22px); opacity:.7;
+  }
+  .hero::before{ top:0; } .hero::after{ bottom:0; }
+
+  .timecode{ font-family:var(--font-mono); font-size:13px; letter-spacing:2px; color:var(--gold); display:flex; align-items:center; gap:10px; margin-bottom:28px; }
+  .timecode .dot{ width:7px; height:7px; border-radius:50%; background:var(--gold); animation:blink 1.6s infinite; }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
+
+  .hero h1{ font-family:var(--font-display); font-size:clamp(76px, 14vw, 168px); line-height:.92; letter-spacing:1px; text-transform:uppercase; }
+  .hero h1 .accent{ background:linear-gradient(90deg, var(--gold), #ffd9a8); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .hero-tagline{
+    margin-top:20px; display:flex; align-items:center; gap:14px;
+    font-family:var(--font-mono); font-size:12.5px; letter-spacing:4px;
+    text-transform:uppercase; color:var(--gold);
+  }
+  .hero-tagline::before{ content:''; width:34px; height:1px; background:var(--gold); }
+
+  .hero .role{ margin-top:22px; font-size:clamp(16px, 2.4vw, 21px); color:var(--muted); font-weight:300; max-width:620px; }
+  .hero .role strong{ color:var(--text); font-weight:600; }
+
+  .hero-cta{ margin-top:44px; display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+  .btn{ display:inline-flex; align-items:center; gap:10px; padding:15px 28px; font-weight:600; font-size:15px; border-radius:2px; transition:transform .25s ease, background .25s ease, border-color .25s ease; }
+  .btn-primary{ background:var(--gold); color:#0a0a0b; }
+  .btn-primary:hover{ transform:translateY(-2px); }
+  .btn-ghost{ border:1px solid var(--line); color:var(--text); }
+  .btn-ghost:hover{ border-color:var(--gold); color:var(--gold); }
+
+  .scroll-cue{ position:absolute; bottom:34px; right:32px; font-family:var(--font-mono); font-size:11px; color:var(--muted); display:flex; align-items:center; gap:10px; }
+  .scroll-cue .bar{ width:1px; height:36px; background:var(--line); position:relative; overflow:hidden; }
+  .scroll-cue .bar::after{ content:''; position:absolute; top:-100%; left:0; right:0; height:100%; background:var(--gold); animation:scrolldown 2s infinite ease-in-out; }
+  @keyframes scrolldown{ 0%{top:-100%;} 60%{top:100%;} 100%{top:100%;} }
+  @media (max-width:720px){ .scroll-cue{ display:none; } }
+
+  /* ============ SECTION HEADERS ============ */
+  .eyebrow{ font-family:var(--font-mono); font-size:12px; letter-spacing:3px; color:var(--gold); margin-bottom:14px; text-transform:uppercase; }
+  section{ padding:120px 0; border-bottom:1px solid var(--line); }
+  .sec-title{ font-family:var(--font-display); font-size:clamp(38px, 5.5vw, 60px); text-transform:uppercase; letter-spacing:.5px; margin-bottom:20px; }
+
+  /* ============ ABOUT ============ */
+  .about-grid{ display:grid; grid-template-columns: 1.15fr .85fr; gap:70px; align-items:start; }
+  @media (max-width:860px){ .about-grid{ grid-template-columns:1fr; } }
+  .about-text p{ color:var(--muted); font-size:17px; margin-bottom:18px; max-width:56ch; }
+  .about-text p strong{ color:var(--text); }
+
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:4px; overflow:hidden; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:12px; color:var(--muted); }
+  .panel-head .dots{ display:flex; gap:6px; }
+  .panel-head .dots span{ width:9px; height:9px; border-radius:50%; background:var(--line); }
+  .tool-row{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); font-size:14px; }
+  .tool-row:last-child{ border-bottom:none; }
+  .tool-row .name{ font-weight:600; }
+  .tool-row .meter{ width:120px; height:4px; background:var(--surface-2); border-radius:2px; overflow:hidden; }
+  .tool-row .meter i{ display:block; height:100%; background:linear-gradient(90deg, var(--blue), var(--gold)); }
+
+  /* ============ SHOWREEL ============ */
+  .monitor{
+    position:relative; aspect-ratio:16/9;
+    background: radial-gradient(circle at 30% 20%, rgba(47,111,214,.35), transparent 55%), radial-gradient(circle at 75% 80%, rgba(232,163,61,.28), transparent 55%), var(--surface);
+    border:1px solid var(--line); border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden;
+  }
+  .monitor .corner{ position:absolute; width:22px; height:22px; border-color:var(--gold); opacity:.8; }
+  .monitor .corner.tl{ top:16px; left:16px; border-top:2px solid; border-left:2px solid; }
+  .monitor .corner.tr{ top:16px; right:16px; border-top:2px solid; border-right:2px solid; }
+  .monitor .corner.bl{ bottom:16px; left:16px; border-bottom:2px solid; border-left:2px solid; }
+  .monitor .corner.br{ bottom:16px; right:16px; border-bottom:2px solid; border-right:2px solid; }
+  .monitor .tc{ position:absolute; bottom:16px; left:50px; font-family:var(--font-mono); font-size:12px; color:var(--gold); }
+  .play-btn{ width:78px; height:78px; border-radius:50%; border:1px solid var(--gold); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .3s ease, background .3s ease; background:rgba(10,10,11,.5); }
+  .play-btn:hover{ transform:scale(1.08); background:rgba(232,163,61,.15); }
+  .play-btn svg{ width:22px; height:22px; margin-left:4px; }
+  .showreel-note{ margin-top:16px; font-family:var(--font-mono); font-size:12px; color:var(--muted); }
+
+  /* ============ WORK — FILTERABLE GRID ============ */
+  .filters{ display:flex; gap:10px; flex-wrap:wrap; margin-top:36px; margin-bottom:8px; }
+  .filter-btn{
+    padding:9px 18px; border:1px solid var(--line); border-radius:20px;
+    font-size:13px; font-weight:600; color:var(--muted);
+    transition:border-color .25s ease, color .25s ease, background .25s ease;
+  }
+  .filter-btn:hover{ color:var(--text); border-color:var(--blue-glow); }
+  .filter-btn.active{ color:#0a0a0b; background:var(--gold); border-color:var(--gold); }
+
+  .work-count{ font-family:var(--font-mono); font-size:12px; color:var(--muted); margin:18px 0 30px; }
+
+  .work-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:22px; }
+  @media (max-width:940px){ .work-grid{ grid-template-columns:repeat(2, 1fr); } }
+  @media (max-width:600px){ .work-grid{ grid-template-columns:1fr; } }
+
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:4px; overflow:hidden;
+    transition:transform .3s ease, border-color .3s ease;
+    display:flex; flex-direction:column; text-decoration:none; color:inherit;
+    width:100%; text-align:left; font:inherit; cursor:pointer; padding:0;
+  }
+  .card:hover{ transform:translateY(-6px); border-color:var(--blue-glow); }
+  .card-thumb{
+    aspect-ratio:16/10; position:relative; overflow:hidden;
+    background:linear-gradient(135deg, var(--blue), var(--surface-2) 55%, var(--gold));
+  }
+  .card-thumb img{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .4s ease; }
+  .card:hover .card-thumb img{ transform:scale(1.06); }
+  .card-thumb .dur{
+    position:absolute; bottom:10px; right:10px; font-family:var(--font-mono); font-size:11px;
+    background:rgba(10,10,11,.7); padding:3px 8px; border-radius:2px; letter-spacing:.5px;
+  }
+  .card-thumb .play-mini{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    opacity:0; transition:opacity .3s ease; background:rgba(10,10,11,.25);
+  }
+  .card:hover .play-mini{ opacity:1; }
+  .play-mini span{
+    width:46px; height:46px; border-radius:50%; border:1px solid #fff;
+    display:flex; align-items:center; justify-content:center; backdrop-filter:blur(2px);
+  }
+  .play-mini svg{ width:14px; height:14px; margin-left:2px; }
+  .card-body{ padding:18px 20px 22px; display:flex; flex-direction:column; gap:8px; flex:1; }
+  .card-tag{ font-family:var(--font-mono); font-size:11px; color:var(--blue-glow); letter-spacing:.5px; text-transform:uppercase; display:flex; align-items:center; gap:6px; }
+  .card-tag::before{ content:''; width:5px; height:5px; border-radius:50%; background:var(--blue-glow); }
+  .card-title{ font-weight:600; font-size:16px; line-height:1.4; }
+
+  .load-more-wrap{ display:flex; justify-content:center; margin-top:44px; }
+
+  /* ============ VIDEO MODAL ============ */
+  .video-modal{
+    position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background:rgba(5,6,10,.92); backdrop-filter:blur(6px);
+    opacity:0; pointer-events:none; transition:opacity .25s ease; padding:24px;
+  }
+  .video-modal.open{ opacity:1; pointer-events:auto; }
+  .video-modal-inner{
+    position:relative; width:100%; max-width:960px; aspect-ratio:16/9;
+    background:#000; border-radius:6px; overflow:hidden;
+    box-shadow:0 40px 100px -20px rgba(0,0,0,.7);
+    transform:scale(.94); transition:transform .3s ease;
+  }
+  .video-modal.open .video-modal-inner{ transform:scale(1); }
+  .video-modal-inner iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .video-modal-close{
+    position:absolute; top:-46px; right:0; width:36px; height:36px; border-radius:50%;
+    border:1px solid var(--line); background:var(--surface); color:var(--text);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:border-color .2s ease, color .2s ease;
+  }
+  .video-modal-close:hover{ border-color:var(--gold); color:var(--gold); }
+  @media (max-width:720px){ .video-modal-close{ top:-42px; } }
+
+  /* ============ STATS ============ */
+  .stats-grid{
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:1px;
+    background:var(--line); border:1px solid var(--line); border-radius:4px; overflow:hidden;
+  }
+  @media (max-width:760px){ .stats-grid{ grid-template-columns:repeat(2, 1fr); } }
+  .stat-card{
+    background:var(--surface); padding:44px 24px; text-align:center;
+    transition:background .3s ease;
+  }
+  .stat-card:hover{ background:var(--surface-2); }
+  .stat-num{
+    font-family:var(--font-display); font-size:clamp(40px, 5vw, 58px);
+    line-height:1; letter-spacing:.5px;
+    background:linear-gradient(90deg, var(--gold), var(--blue-glow));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .stat-label{ margin-top:12px; font-family:var(--font-mono); font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+
+  /* ============ PREMIERE-STYLE TIMELINE PANEL ============ */
+  .premiere-panel{
+    margin-top:40px; background:var(--surface); border:1px solid var(--line); border-radius:4px; overflow:hidden;
+  }
+  .timeline-ruler{
+    position:relative; display:flex; justify-content:space-between;
+    padding:10px 20px; border-bottom:1px solid var(--line);
+    font-family:var(--font-mono); font-size:10.5px; color:var(--muted);
+    background:
+      repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px calc(100% / 12)) ,
+      var(--surface-2);
+    background-size: 100% 100%, 100% 100%;
+    letter-spacing:.5px;
+  }
+  .playhead{
+    position:absolute; top:0; bottom:0; left:0; width:1px; background:var(--blue-glow);
+    box-shadow:0 0 8px var(--blue-glow);
+    animation:playhead 9s linear infinite;
+  }
+  .playhead::before{
+    content:''; position:absolute; top:-1px; left:-4px; width:9px; height:9px;
+    background:var(--blue-glow); clip-path: polygon(50% 100%, 0 0, 100% 0);
+  }
+  @keyframes playhead{ 0%{ left:0%; } 100%{ left:99%; } }
+
+  /* ============ SKILLS TRACKS ============ */
+  .track{ margin-bottom:26px; }
+  .track-label{ display:flex; align-items:center; gap:12px; font-family:var(--font-mono); font-size:12px; color:var(--muted); margin-bottom:10px; text-transform:uppercase; }
+  .track-label b{ color:var(--text); }
+  .track-lane{ display:flex; gap:10px; flex-wrap:wrap; padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:4px; }
+  .chip{ padding:9px 16px; background:var(--surface-2); border:1px solid var(--line); border-radius:2px; font-size:13.5px; font-weight:500; }
+  .track.v .chip{ border-left:3px solid var(--gold); }
+  .track.a .chip{ border-left:3px solid var(--blue); }
+
+  /* ============ CONTACT ============ */
+  .export-card{ background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:56px; text-align:center; }
+  @media (max-width:720px){ .export-card{ padding:36px 22px; } }
+  .export-card h2{ font-family:var(--font-display); font-size:clamp(34px,5vw,52px); text-transform:uppercase; margin-bottom:16px; }
+  .export-card p{ color:var(--muted); max-width:50ch; margin:0 auto 34px; }
+  .socials{ margin-top:40px; display:flex; gap:16px; justify-content:center; flex-wrap:wrap; font-family:var(--font-mono); font-size:13px; color:var(--muted); }
+  .socials a{ display:flex; align-items:center; gap:8px; padding:10px 18px; border:1px solid var(--line); border-radius:20px; transition:border-color .25s ease, color .25s ease, transform .25s ease; }
+  .socials a svg{ width:16px; height:16px; }
+  .socials a:hover{ color:var(--gold); border-color:var(--gold); transform:translateY(-2px); }
+
+  footer{ padding:34px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-family:var(--font-mono); font-size:12px; color:var(--muted); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+    .reveal, .reveal-stagger > *, .hero-in{ opacity:1 !important; transform:none !important; filter:none !important; }
+    .meter i{ transform:scaleX(1) !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+
+<header id="siteHeader">
+  <div class="wrap">
+    <div class="logo">FATH<span>.</span>ALLA</div>
+    <nav>
+      <ul>
+        <li><a href="#about">About</a></li>
+        <li><a href="#stats">Stats</a></li>
+        <li><a href="#work">Work</a></li>
+        <li><a href="#skills">Skills</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="heroSection" style="border-bottom:1px solid var(--line); padding-top:120px;">
+  <div class="orb orb-blue"></div>
+  <div class="orb orb-gold"></div>
+  <div class="spotlight" id="spotlight"></div>
+  <div class="wrap">
+    <div class="timecode hero-in" style="animation-delay:.05s;"><span class="dot"></span><span id="tc">00:00:00:00</span> — REC</div>
+    <h1 class="hero-in" style="animation-delay:.15s;">FATH<span class="accent">ALLA</span></h1>
+    <div class="hero-tagline hero-in" style="animation-delay:.28s;">Visual Storyteller — Frame by Frame</div>
+    <p class="role hero-in" style="animation-delay:.4s;">I cut stories, not just clips — from <strong>fast-paced reels</strong> to <strong>ads</strong> and <strong>motion graphics</strong>. Every project lands on the timeline with intent, frame by frame.</p>
+    <div class="hero-cta hero-in" style="animation-delay:.5s;">
+      <a href="#work" class="btn btn-primary">View the work</a>
+      <a href="#contact" class="btn btn-ghost">Let's talk</a>
+    </div>
+  </div>
+  <div class="scroll-cue"><div class="bar"></div><span>SCROLL</span></div>
+</section>
+
+<!-- ============ STATS ============ -->
+<section id="stats">
+  <div class="wrap">
+    <div class="stats-grid reveal-stagger">
+      <div class="stat-card">
+        <div class="stat-num" data-count="300" data-suffix="+">0</div>
+        <div class="stat-label">Videos Edited</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" data-count="3" data-suffix="+">0</div>
+        <div class="stat-label">Years of Experience</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" data-count="50" data-suffix="M+">0</div>
+        <div class="stat-label">Total Views</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" data-count="50" data-suffix="+">0</div>
+        <div class="stat-label">Happy Clients</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section id="about">
+  <div class="wrap">
+    <div class="eyebrow reveal">// About</div>
+    <h2 class="sec-title reveal">Behind the timeline for years — not just cut and paste.</h2>
+    <div class="about-grid" style="margin-top:50px;">
+      <div class="about-text reveal">
+        <p>I'm <strong>Fathalla</strong>, a video editor based in <strong>Egypt</strong>. It started back in 2022 as a hobby — cutting random clips just to see how far I could push a story with nothing but timing and music. Somewhere along the way it turned into a craft, then a career.</p>
+        <p>Since then I've been behind the timeline for brands, creators, and small businesses — chasing the same feeling every time: that split-second where a cut just <strong>hits right</strong>. Every project is different, but the goal never changes — making the viewer feel something, frame by frame.</p>
+      </div>
+      <div class="panel reveal" id="toolsPanel">
+        <div class="panel-head">
+          <span>Tools.panel</span>
+          <div class="dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="tool-row"><span class="name">Adobe Premiere Pro</span><div class="meter"><i style="width:95%"></i></div></div>
+        <div class="tool-row"><span class="name">After Effects</span><div class="meter"><i style="width:80%"></i></div></div>
+        <div class="tool-row"><span class="name">Audio / Sound Design</span><div class="meter"><i style="width:70%"></i></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WORK ============ -->
+<section id="work">
+  <div class="wrap">
+    <div class="eyebrow reveal">// Selected work</div>
+    <h2 class="sec-title reveal">A mix of projects</h2>
+
+    <div class="filters reveal">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="ad">Ads</button>
+      <button class="filter-btn" data-filter="reel">Reel</button>
+      <button class="filter-btn" data-filter="motion">Motion</button>
+    </div>
+    <div class="work-count" id="workCount"></div>
+
+    <div class="work-grid reveal-stagger" id="workGrid">
+      <!-- cards injected by JS -->
+    </div>
+
+    <div class="load-more-wrap">
+      <button class="btn btn-ghost" id="loadMoreBtn">Load more</button>
+    </div>
+    <p class="showreel-note" style="margin-top:24px;">* Swap each card for a real project — title, category, duration, and a link to the video. Add as many as you like in the projects list; the grid and filters scale automatically.</p>
+  </div>
+</section>
+
+<!-- ============ SKILLS ============ -->
+<section id="skills">
+  <div class="wrap">
+    <div class="eyebrow reveal">// Skills</div>
+    <h2 class="sec-title reveal">The tracks</h2>
+
+    <div class="premiere-panel reveal">
+      <div class="panel-head">
+        <span>Sequence: Skills_Reel.prproj — Adobe Premiere Pro</span>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+      <div class="timeline-ruler">
+        <div class="playhead"></div>
+        <span>00:00</span><span>00:05</span><span>00:10</span><span>00:15</span><span>00:20</span><span>00:25</span>
+      </div>
+      <div class="reveal-stagger" style="padding:20px;">
+        <div class="track v">
+          <div class="track-label"><b>V1</b> — Editing & storytelling</div>
+          <div class="track-lane">
+            <span class="chip">Story Editing</span>
+            <span class="chip">Pacing & Rhythm</span>
+            <span class="chip">Multi-cam</span>
+            <span class="chip">Trailer Cutting</span>
+          </div>
+        </div>
+        <div class="track v">
+          <div class="track-label"><b>V2</b> — Color & motion</div>
+          <div class="track-lane">
+            <span class="chip">Color Grading</span>
+            <span class="chip">Motion Graphics</span>
+            <span class="chip">Basic VFX</span>
+            <span class="chip">Titling & Captions</span>
+          </div>
+        </div>
+        <div class="track a">
+          <div class="track-label"><b>A1</b> — Audio</div>
+          <div class="track-lane">
+            <span class="chip">Sound Design</span>
+            <span class="chip">Mixing</span>
+            <span class="chip">Music Sync</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONTACT ============ -->
+<section id="contact" style="border-bottom:none;">
+  <div class="wrap">
+    <div class="export-card reveal">
+      <div class="eyebrow" style="justify-content:center; display:flex;">// Ready to export</div>
+      <h2>Got a project? Let's start cutting.</h2>
+      <p>Send over the project details and I'll get back to you fast with a plan and a clear delivery date.</p>
+      <a href="mailto:you@example.com" class="btn btn-primary">Email me</a>
+      <div class="socials">
+        <a href="https://www.instagram.com/fatha11a.edits/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>
+          <span>Instagram</span>
+        </a>
+        <a href="https://x.com/moazfatha11a" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.6 10.6 20.4 3h-1.7l-5.9 6.6L8.1 3H3l7.1 10-7.1 8h1.7l6.2-7 5.1 7H21l-7.4-10.4Zm-2.2 2.5-.7-1L5 4.3h2.4l4.6 6.4.7 1L18 19.8h-2.4l-4.9-6.7Z"/></svg>
+          <span>X</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="display:flex; justify-content:space-between; width:100%; flex-wrap:wrap; gap:12px;">
+    <span>© 2026 Fathalla</span>
+    <span>EDITED FRAME BY FRAME</span>
+  </div>
+</footer>
+
+<div class="video-modal" id="videoModal">
+  <div class="video-modal-inner">
+    <button class="video-modal-close" id="videoModalClose" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l14 14M19 5L5 19"/></svg>
+    </button>
+    <div id="videoModalFrame"></div>
+  </div>
+</div>
+
+<script>
+  // ---------- header solid on scroll ----------
+  const header = document.getElementById('siteHeader');
+  window.addEventListener('scroll', () => {
+    header.classList.toggle('solid', window.scrollY > 40);
+  });
+
+  // ---------- running timecode ----------
+  const tcEl = document.getElementById('tc');
+  let frames = 0;
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!prefersReduced) {
+    setInterval(() => {
+      frames++;
+      let f = frames % 24;
+      let totalSec = Math.floor(frames / 24);
+      let s = totalSec % 60;
+      let m = Math.floor(totalSec / 60) % 60;
+      let h = Math.floor(totalSec / 3600);
+      const pad = n => String(n).padStart(2, '0');
+      tcEl.textContent = `${pad(h)}:${pad(m)}:${pad(s)}:${pad(f)}`;
+    }, 1000 / 24);
+  }
+
+  // ---------- WORK DATA (add as many projects as you want — no limit) ----------
+  const projects = [
+    { title:'Ads Edit 01', tag:'ad', tagLabel:'Ads', url:'https://youtu.be/o89QR5ao29E' },
+    { title:'Ads Edit 02', tag:'ad', tagLabel:'Ads', url:'https://youtu.be/KVnJAVywT1c' },
+    { title:'Ads Edit 03', tag:'ad', tagLabel:'Ads', url:'https://youtu.be/y39MKrfAyRk' },
+    { title:'Motion Edit 01', tag:'motion', tagLabel:'Motion', url:'https://youtu.be/ECO0krkxILE' },
+    { title:'Motion Edit 02', tag:'motion', tagLabel:'Motion', url:'https://youtu.be/j6NAseTJfq8' },
+    { title:'Motion Edit 03', tag:'motion', tagLabel:'Motion', url:'https://youtu.be/m4hQUdzJHpM' },
+    { title:'Motion Edit 04', tag:'motion', tagLabel:'Motion', url:'https://youtu.be/VIRvOPGvwmA' },
+    { title:'Reel Edit 01', tag:'reel', tagLabel:'Reel', url:'https://youtube.com/shorts/PVQbcBxoYbo' },
+    { title:'Reel Edit 02', tag:'reel', tagLabel:'Reel', url:'https://youtube.com/shorts/U8wqkyKZQiA' },
+    { title:'Reel Edit 03', tag:'reel', tagLabel:'Reel', url:'https://youtube.com/shorts/li6p6oxTl7U' },
+  ];
+
+  function ytId(url){
+    const m = url.match(/(?:youtu\.be\/|shorts\/|v=)([A-Za-z0-9_-]{6,})/);
+    return m ? m[1] : '';
+  }
+
+  const grid = document.getElementById('workGrid');
+  const workCount = document.getElementById('workCount');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const PAGE_SIZE = 6;
+  let currentFilter = 'all';
+  let visibleCount = PAGE_SIZE;
+
+  function playIcon(){
+    return `<svg viewBox="0 0 24 24" fill="none"><path d="M6 4L20 12L6 20V4Z" fill="#fff"/></svg>`;
+  }
+
+  function renderGrid(){
+    const filtered = projects.filter(p => currentFilter === 'all' || p.tag === currentFilter);
+    workCount.textContent = `${filtered.length} project${filtered.length !== 1 ? 's' : ''}${currentFilter !== 'all' ? ' — filtered' : ''}`;
+
+    grid.innerHTML = filtered.slice(0, visibleCount).map(p => `
+      <button class="card" type="button" onclick="openVideoModal('${ytId(p.url)}')" aria-label="Play ${p.title}">
+        <div class="card-thumb">
+          <img src="https://img.youtube.com/vi/${ytId(p.url)}/hqdefault.jpg" alt="${p.title}" loading="lazy">
+          <div class="play-mini"><span>${playIcon()}</span></div>
+        </div>
+        <div class="card-body">
+          <div class="card-tag">${p.tagLabel}</div>
+          <div class="card-title">${p.title}</div>
+        </div>
+      </button>
+    `).join('');
+
+    grid.classList.remove('show');
+    requestAnimationFrame(() => grid.classList.add('show'));
+
+    loadMoreBtn.style.display = visibleCount >= filtered.length ? 'none' : 'inline-flex';
+  }
+
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      visibleCount = PAGE_SIZE;
+      renderGrid();
+    });
+  });
+
+  loadMoreBtn.addEventListener('click', () => {
+    visibleCount += PAGE_SIZE;
+    renderGrid();
+  });
+
+  renderGrid();
+
+  // ---------- video modal ----------
+  const videoModal = document.getElementById('videoModal');
+  const videoModalFrame = document.getElementById('videoModalFrame');
+  const videoModalClose = document.getElementById('videoModalClose');
+
+  window.openVideoModal = function(id){
+    videoModalFrame.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&rel=0" title="video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    videoModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  function closeVideoModal(){
+    videoModal.classList.remove('open');
+    videoModalFrame.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  videoModalClose.addEventListener('click', closeVideoModal);
+  videoModal.addEventListener('click', (e) => { if (e.target === videoModal) closeVideoModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeVideoModal(); });
+
+  // ---------- stat counters ----------
+  function animateCount(el){
+    const target = parseInt(el.dataset.count, 10);
+    const suffix = el.dataset.suffix || '';
+    if (prefersReduced) { el.textContent = target + suffix; return; }
+    const duration = 1400;
+    const start = performance.now();
+    function tick(now){
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.round(target * eased) + suffix;
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  const statObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        animateCount(entry.target);
+        statObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll('.stat-num').forEach(el => statObserver.observe(el));
+
+  // ---------- scroll-reveal ----------
+  const revealEls = document.querySelectorAll('.reveal, .reveal-stagger');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('show');
+        if (entry.target.id === 'toolsPanel') {
+          entry.target.querySelectorAll('.meter').forEach(m => m.classList.add('show'));
+        }
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  revealEls.forEach(el => io.observe(el));
+
+  // ---------- cursor spotlight in hero ----------
+  const heroSection = document.getElementById('heroSection');
+  const spotlight = document.getElementById('spotlight');
+  if (heroSection && spotlight && !prefersReduced) {
+    heroSection.addEventListener('mousemove', (e) => {
+      const rect = heroSection.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      spotlight.style.setProperty('--x', x + '%');
+      spotlight.style.setProperty('--y', y + '%');
+    });
+  }
+</script>
+</body>
+</html>
