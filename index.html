@@ -512,25 +512,12 @@
     <div class="export-card reveal">
       <div class="eyebrow" style="justify-content:center; display:flex;">// Ready to export</div>
       <h2>Got a project? Let's start cutting.</h2>
-      <p>Send over the project details and I'll get back to you fast with a plan and a clear delivery date.</p>
-      <form id="contactForm" class="contact-form">
-        <input type="hidden" name="access_key" value="9b197738-8228-49fc-8d47-f412497575ba">
-        <input type="checkbox" name="botcheck" style="display:none">
-        <div class="form-row">
-          <label for="cf-name">Name</label>
-          <input type="text" id="cf-name" name="name" placeholder="Your name" required>
-        </div>
-        <div class="form-row">
-          <label for="cf-email">Email</label>
-          <input type="email" id="cf-email" name="email" placeholder="you@email.com" required>
-        </div>
-        <div class="form-row">
-          <label for="cf-message">Project details</label>
-          <textarea id="cf-message" name="message" placeholder="Tell me about your project..." required></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary" id="contactSubmit">Send message</button>
-        <p id="formStatus" class="form-status"></p>
-      </form>
+      <p>Pick a time that works for you and let's talk through your project details on a quick call.</p>
+      <div class="contact-form" style="align-items:center;">
+        <a href="https://calendly.com/moazfathalla74/30min" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="justify-content:center; width:100%;">
+          Book a call
+        </a>
+      </div>
       <div class="socials">
         <a href="https://www.instagram.com/fatha11a.edits/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>
@@ -673,44 +660,6 @@
   videoModalClose.addEventListener('click', closeVideoModal);
   videoModal.addEventListener('click', (e) => { if (e.target === videoModal) closeVideoModal(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeVideoModal(); });
-
-  // ---------- contact form ----------
-  const contactForm = document.getElementById('contactForm');
-  const formStatus = document.getElementById('formStatus');
-  if (contactForm) {
-    contactForm.addEventListener('submit', async function(e){
-      e.preventDefault();
-      const btn = document.getElementById('contactSubmit');
-      const originalLabel = btn.textContent;
-      btn.textContent = 'Sending...';
-      btn.disabled = true;
-      formStatus.style.color = 'var(--muted)';
-      formStatus.textContent = '';
-
-      try {
-        const res = await fetch('https://api.web3forms.com/submit', {
-          method: 'POST',
-          headers: { 'Accept': 'application/json' },
-          body: new FormData(contactForm)
-        });
-        const data = await res.json();
-        if (data.success) {
-          formStatus.style.color = 'var(--gold)';
-          formStatus.textContent = "Thanks! Your message has been sent — I'll get back to you soon.";
-          contactForm.reset();
-        } else {
-          formStatus.style.color = '#ff6b6b';
-          formStatus.textContent = 'Something went wrong. Please try again.';
-        }
-      } catch (err) {
-        formStatus.style.color = '#ff6b6b';
-        formStatus.textContent = 'Something went wrong. Please try again.';
-      }
-
-      btn.textContent = originalLabel;
-      btn.disabled = false;
-    });
-  }
 
   // ---------- stat counters ----------
   function animateCount(el){
